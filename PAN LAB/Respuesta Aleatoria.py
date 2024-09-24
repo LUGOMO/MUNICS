@@ -15,9 +15,12 @@ Segundo_lanzamiento_moneda = np.random.choice([0,1], size=n, p=[0.5, 0.5]) # Cru
 Y = np.where(Primer_lanzamiento_moneda == 1, X, np.where(Segundo_lanzamiento_moneda == 1, 1, 0))
 
 gamma_simulacion = np.mean(Y == X)
+gamm_diferencia = np.mean(gamma_simulacion-gamma_Teorico)
 # Imprimir las respuestas generadas
 
 ##
 print("Resultado de las Simulaciones:",Y[:20]) #Muestra la respuesta de las 2 primeras simulaciones
 print(f"Valor de gamma empírico: {gamma_simulacion}")
 print(f"Valor esperado de gamma: {gamma_Teorico}")
+ 
+

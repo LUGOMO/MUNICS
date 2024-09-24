@@ -4,6 +4,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESCM
 import os
+import pubkeys
 
 # Private Key reading
 with open(r"E:\MUNICS\SI\Assignment 1\CLAVES\LGM", "rb") as key_file:
@@ -48,3 +49,5 @@ aesgcm.decrypt(nonce, ciphertext, None)
         
 # shows Decrypted Message
 print("Mensaje desencriptado:", decrypted_data.decode())
+
+pubkeys.pubkeydictionary("LGM")
