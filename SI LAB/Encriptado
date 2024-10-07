@@ -90,7 +90,7 @@ if len(rutaUsuario) == 1:
 else:
     # Concatenar el ID del destinatario si hay más de un salto
     final_result = normalizado_Id(rutaUsuario[-1]) + encrypted_key_destinatario + final_result
-    print(f"\nResultado inicial del destinatario (fuera del bucle): {final_result.hex()}")
+    # print(f"\nResultado inicial del destinatario (fuera del bucle): {final_result.hex()}")
 
     # Iniciar el bucle para los demás saltos, excepto el destinatario
     for i in range(len(rutaUsuario) - 2, -1, -1):  # Comenzamos desde el penúltimo salto hacia el primero
@@ -100,15 +100,15 @@ else:
         # Generar una nueva clave simétrica para este salto
         new_key = AESGCM.generate_key(bit_length=128)
         aesgcm = AESGCM(new_key)
-        print(f"\nGenerando nueva clave simétrica para el salto '{hop_actual}': {new_key.hex()}")
+        # print(f"\nGenerando nueva clave simétrica para el salto '{hop_actual}': {new_key.hex()}")
 
         # Cifrar el resultado del salto anterior (final_result) con la nueva clave simétrica
         final_result = aesgcm.encrypt(new_key, final_result, None)  # Usamos new_key como nonce
-        print(f"Resultado cifrado con la nueva clave simétrica para el salto '{hop_actual}'.")
+        # print(f"Resultado cifrado con la nueva clave simétrica para el salto '{hop_actual}'.")
 
         # Obtener la clave pública del **salto actual (hop_actual)**, que es quien debe desencriptar este salto
         clave_publica_hop_str = publicKeysOrder[i]  # Tomamos la clave pública del salto actual
-        print(f"Clave pública del salto actual '{hop_actual}': {clave_publica_hop_str}")
+        # print(f"Clave pública del salto actual '{hop_actual}': {clave_publica_hop_str}")
 
         # Cargar la clave pública del salto actual (hop_actual)
         try:
@@ -128,16 +128,16 @@ else:
                 label=None
             )
         )
-        print(f"Clave simétrica cifrada con la clave pública del salto '{hop_actual}'.")
+        #print(f"Clave simétrica cifrada con la clave pública del salto '{hop_actual}'.")
 
         # Concatenar el ID del siguiente salto con la clave simétrica cifrada y el resultado cifrado
         if i > 0:
             final_result = normalizado_Id(hop_actual) + encrypted_key + final_result
-            print(f"Concatenación final para el salto '{hop_actual}' realizada. Tamaño del resultado: {len(final_result)} bytes")
+            # print(f"Concatenación final para el salto '{hop_actual}' realizada. Tamaño del resultado: {len(final_result)} bytes")
         else:
             # En la última iteración (primer salto en la ruta), no concatenamos el ID
             final_result = encrypted_key + final_result
-            print(f"Concatenación sin ID para el último salto (primer salto en ruta). Tamaño del resultado: {len(final_result)} bytes")
+            # print(f"Concatenación sin ID para el último salto (primer salto en ruta). Tamaño del resultado: {len(final_result)} bytes")
 
 # Configuración del servidor MQTT
 MQTT_HOST = "18.100.158.114"  # Dirección IP del servidor MQTT
@@ -158,4 +158,4 @@ enviar_a_mqtt(final_result, rutaUsuario[0])
 
 # Imprimir el resultado final cifrado
 print(f"\nMensaje final cifrado en todas las capas: {final_result}")
-print(f"Tamaño final del mensaje cifrado: {len(final_result)} bytes")
+# print(f"Tamaño final del mensaje cifrado: {len(final_result)} bytes")
