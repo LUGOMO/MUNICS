@@ -3,7 +3,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import os
-from pubkeys import pubkeydictionary  
+from pubkeys import pubkeydictionary
 import paho.mqtt.client as mqtt  
 
 # Petición del mensaje
