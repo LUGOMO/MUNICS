@@ -51,12 +51,13 @@ def on_message(client, userdata, message):
         print("Mensaje desencriptado exitosamente.")
 
         # Verificación si los primeros 5 bytes son '\x00\x00end'
-        if mensaje_desencriptado[:5] == b'\x00\x00end':
+        if mensaje_desencriptado[:5] == b'\x00\x00end' or mensaje_desencriptado[:5] == b'00end':
             print("El mensaje es para ti.")
             mensaje_desencriptado = mensaje_desencriptado[5:]  # Remover los primeros 5 bytes ('\x00\x00end')
-            
+            # print(f"\nEl mensaje a limpiar:{(mensaje_desencriptado)}\n")
             # Leer los siguientes 5 bytes y extraer el ID remitente
-            id_remitente = mensaje_desencriptado[:5].decode('ascii').strip('\x00')
+            id_remitente = mensaje_desencriptado[:5].strip(b'\x00').strip(b'0')
+            id_remitente = id_remitente.decode('ascii')
             print(f"El paquete fue enviado por: {id_remitente}")
 
             # El resto del mensaje
@@ -65,7 +66,9 @@ def on_message(client, userdata, message):
 
         else:
             # Extraer el siguiente topic desde los primeros 5 bytes (ID del siguiente salto)
-            siguiente_topic = mensaje_desencriptado[:5].decode('ascii').strip('\x00')
+            siguiente_topic = mensaje_desencriptado[:5].strip(b'\x00').strip(b'0')
+            siguiente_topic = siguiente_topic.decode('ascii')
+            print(f"Next Hop{siguiente_topic}")
             print(f"El mensaje no es para ti. Reenviando al siguiente tópico: {siguiente_topic}")
 
             # Eliminar los primeros 5 bytes (ID del destinatario) y reenviar el mensaje al nuevo topic

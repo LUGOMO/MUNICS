@@ -38,7 +38,7 @@ while True:
     if not rutas_invalidas:
         break 
 
-# Definir el ID según el anonimato
+# Definir el ID según la peticion del usuario de ser anonimo
 if anonymous == "s":
     sender_id = b"none"
 else:
@@ -48,7 +48,6 @@ else:
 def normalizado_Id(id_str: str):
     return b'\x00' * (5 - len(id_str)) + id_str.encode('ascii')
 
-# Función para concatenar ID de entrada con el mensaje cifrado
 def concatenado_end_id_mensaje(end: bytes, sender_id: bytes, mensaje: bytes):
     end_padded = b'\x00' * (5 - len(end)) + end
     sender_id_padded = b'\x00' * (5 - len(sender_id)) + sender_id
