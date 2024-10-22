@@ -34,8 +34,8 @@ def listen():
 
 #Funcion para convertir los dato recibidos a vector
 def mensaje_a_vec(x, l):
-    print(f"x = {x}")
-    print(f"l = {l}")
+    # print(f"x = {x}")
+    # print(f"l = {l}")
     y = x.decode('utf-8')  # Decodificar directamente los bytes a una cadena
     return [int(y[i]) for i in range(l)]
 
@@ -133,6 +133,7 @@ gnorS_enviar = ''.join(map(str,gnorS))
 client.publish('Alice_', gnorS_enviar)
 
 #Escucha del segundo mensaje de Bob, para saber que concluye de la informacion enviada
+listen()
 listen()
 
 

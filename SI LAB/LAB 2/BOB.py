@@ -33,8 +33,8 @@ def listen():
     
 #Funcion para convertir los dato recibidos a vector
 def mensaje_a_vec(x, l):
-    print(f"x = {x}")
-    print(f"l = {l}")
+    # print(f"x = {x}")
+    # print(f"l = {l}")
     y = x.decode('utf-8')
     return [int(y[i]) for i in range(l)]
 
