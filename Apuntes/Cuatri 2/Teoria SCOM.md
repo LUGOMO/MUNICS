@@ -449,3 +449,207 @@ Es el protocolo que negocia y distribuye las claves de cifrado usadas por MACsec
 - CAK es la clave PML que AS le entrega al autenticador en el RADIUS "Access-Accept"
 - Durante el dialogo EAP entre AS y el suplicante, el suplicante obtiene la MSK con lo que deriva la PMK (CAK)
 - El estandar tambien considera la posiilidad de configurar manualmente  CAK y CKN en ambos extremos del enlace (Clave Precompartida)
+# WLAN Security
+## IEEE 802.11 WLAN Standards
+## IEEE 802.11 Architecture
+## WiFi Alliance
+### Certification Programs
+## WiFi Security
+### Ataques sobre WLANs
+#### MITM
+### Robust Security Network Association
+### WPA/2-Personal
+### 4-Way Handshake
+# IPSEC
+
+## Introducción a IPSec
+IPsec propone un framework de estándares abiertos para comunicaciones seguras sobre IP. Es transparente ( Capa Transporte), no requiere que las aplicaciones sean conscientes de la seguridad y ofrece soporte para IPv4 y IPv6, en IPv6 es obligatorio mejorando la seguridad.
+
+Es util en FW y routers, ya que proporciona seguridad sin afectar a las estaciones, pero puede dar conflictos ya que requiere los protocolos 50/51 y los puertos UDP 500/4500.
+
+Usos: Establecimiento VPN, Acceso remoto Low-Cost y conectividad con extranet.
+
+RFCs:
+- 4301 (Overview of Security architecture)
+- 4302 (Authentication Header)
+- 4303 (Encapsulating Security Payload for encryption)
+- 7296 (IKEv2 - Key Management)
+
+## Componentes de IPsec
+- Dos protocolos de seguridad: 
+	- AH Authentication Header
+	- ESP Encapsulationg Security Payload
+- Algoritmos de cifrado.
+- Dos modos de encapsulamiento: Transporte y Tunel.
+- Protocolo de gestión y distribución de claves (IKE).
+- Security Police Database (SPD): Qué paquetes se protegen/descartan/permiten.
+- Security Association Database: Cómo van a ser protegidos.
+
+## Modos IPsec
+- Modo Transporte: Protege la comunicación extremo a extremo, el encabezado IP original permanece.
+- Modo Túnel: Se encapsula el paquete IP en uno nuevo, se usa en VPN y entre routers.
+
+## AH Authentication Header
+No cifra los datos, solo proporciona autenticación e integridad. 
+
+Los campos más importantes serían:
+- Next Header que tiene el tipo de protocolo.
+- SPI (Security Parameters Index), identifica la SA.
+- Número de secuencia, para el reply control.
+### ESP Encapsulation Security Payload 
+- Ofrece confidencialidad y autenticación (opcionales) 
+- Cuando no se usa, se utiliza el algoritmo NULL. 
+- El trailer de autenticacion debe omitirse si no se usa.
+- Al menos debe de activarse encriptado o autenticacion, NULL-NULL no es valido.
+
+Campos: ESP Header, Datos cifrados, Trailer, y Autenticación (opcional)
+### Security Policies and Selectors
+El SPD contiene una lista ordenada de políticas de seguridad, asignación de un subconjunto de tráfico IP a la SA pertinente. Cada entrada tiene como clave uno o varios selectores que definen el conjunto de tráfico que abarcan, basado en direcciones IP, protocolo, rango, lista, etc.
+
+Cada entrada también incluye si el tráfico debe ser omitido, descartado o procesado (SA o SA bundle con protocolos que deben emplearse).
+
+### Procesado de paquetes salientes
+- Comparar el paquete con las políticas del SPD.
+- Si requiere IPsec: Se busca una SA en el SAD, si no existe se inicia IKE y la SA se guarda en el SAD.
+
+En cada SA se especifica el módo de IPsec, los algoritmos y parámetros, TL, parámetros antireplay y su SA o SA bundle.
+
+### Procesado de paquetes entrantes
+- Si no contiene encabezado IPsec debe sonsultar el SPD.
+- Si contiene encabezado utiliza la dirección de destino, protocolo y SPI para buscar la SA, si no se encuenta se descarta, si se encuentra se procesa y se entrega a la capa superior o se procesa.
+
+### Combinacion de asociaciones de seguridad
+Se pueden combinar asociaciones de seguridad o AH + ESP combinando SA.
+## IKE
+El objetivo de IKE es crear una asociación de seguridad entre 3 equipos, incluyendo el establecimiento dinámico de claves compartidas temporales para cifrado y autenticación.
+
+Presenta dos fases:
+- Establece la asociación de seguridad (IKE-SA). 
+- Utiliza IKE-SA para crear la asociación real que utilizarán AH y ESP.
+
+### Intercambios de IKEv2
+- IKE_SA_INIT: Negociación de algoritmos de cifrado para la gestión de la SA, Set de transforms (proposal) en la carga SA, derivación de claves maestras y es bidireccional.
+- IKE_AUTH: Protección de integridad, autenticación mutua (firma, clave, EAP), Establecimiento de las primeras SAs de datos (unidireccionales).
+- CREATE_CHILD_SA: Para establecer otros SA y componer un bundle SA y renovar SA existentes. Cuando se reinicia el proceso cambia el Oro 
+- INFORMATIONAL: Eliminar SAs, detectar peers muertos, mantener NAT.
+## IPsec
+### Protección contra DOS
+Responder puede gastar recursos on IPs falsas, la solución es utilizar cookies que hacen que el estado no se guarde hasta recibir una respuesta válida del iniciador, esto aumenta la robustez a costo de dos mensajes extra.
+## Auth Exchange
+Para evitar ataques MITM AUTH se construye con un resumen criptográfico de los datos IKE_SA_INIT, None y la identidad. Es un mecanismo asimétrico, los extremos no necesitan usar el mismo mecanismo.
+
+Peer Authorization Database (PAD): Vinculo SPD con IKE. Define la lista de pares IPsec identificados con su identidad IKE.
+## IPsec y NAT 
+tienen problemas de compatibilidad: AH es imcompatible ya que NAT cambia la IP, ESP en modo transporte también tiene problemas por los checksum.
+
+La solución es encapsular paquetes IPsec en UDP puerto 4500 y utilizar la detección intrínseca de NAT en IPsec para cambiar dinámicamente el tiempo del 500 a 4500 (NAT Transversal).
+# Securizando Protocolos de Transporte en Internet
+## Disponibilidad
+### Ataque Reset TCP
+El flag reset hace que la conexión se corte, su uso normalmente es para una recuperación rápida de errores.
+#### Proceso
+- Dos usuarios A y B mantienen una comunicación.
+- Un atacante envía un paquete Reset a uno de los pares.
+- Cuando se realice el siguiente envío, ese par corta la conexión con un reset.
+#### Requisitos
+- Coincidir con el 4-tuple (cuatro elementos de la conexión TCP), Para que el paquete RST sea aceptado por uno de los extremos de la conexión, debe simular ser parte de esa sesión TCP.
+-  El número de secuencia del RST debe caer dentro de la ventana válida. TCP valida los paquetes RST usando su número de secuencia. Para que el RST sea aceptado:
+	- En todos los estados excepto SYN-SENT:
+		- El número de secuencia (SEQ) debe estar entre RCV.NXT ≤ SEQ < RCV.NXT + RCV.WND (Debe estar dentro de la ventana de recepcion)
+	- En el estado `SYN-SENT` (inicio de conexión):
+		- - El RST se acepta **si su ACK corresponde al número de secuencia del SYN inicial**.
+#### Posicion No Limitada
+El ataque se puede realizar desde la red del cliente y desde la red del servidor. 
+
+En el primer caso al observar el envío de datos del emisor, se envían datos + reset con el número de secuencia n + longitud del paquete anterior. 
+
+En el segundo caso al observar la respuesta ACK con valor n del servidor se le envía datos con reset y secuencia n.
+#### Dificultades del Ataque
+- Ambas direcciones de los endpoint usualmente no son bien conocidas, sin embargo algunas direcciones del servidor son anunciadas, mientras que las de clientes son anonimas.
+- No suelen conocerse los numeros de puerto, el servidor puede anunciarlo pero el cliente no.
+- El espacio de numeros de secuencia no es conocido, las conexiones son brves y el espacio de numeros de secuencia varia, por lo que es dificil de predecir.
+#### Posicion Limitada
+Se necesita un estimado de 2^31/wnd intentos para adivinar una secuencia correcta, e historicamente el tamaño de ventana es < 64 bytes.
+
+Hoy en dia las ventanas pueden superar los 6MB en redes de alta velocidad.
+#### Defensa
+- Solo aceptar segmentos RST si el numero de secuencia es el primero de la ventana (proporcionado por el OS)
+- Filtrar paquetes falsificados a nivel de IP (se realiza en los extremos del AS)
+- Usar marcas de tiempo como defensa adicional (proporcionado por el OS)
+- Autenticar los paquetes TCP (TCP-AO)
+### Inundación SYN (Agotamiento de recursos)
+Consiste en enviar una gran cantidad de solicitudes SYN a un servidor sin realizar el handshake TCP completo. El servidor procede a recordar los SYN reservando resursos y llenando la tabla de conexiones.
+
+Si el atacante envia los SYN con su ip real pero nunca completa la conexion se filtra facilmente del lado del servidor.
+
+Si el atacante envia los SYN con IP falsificadas el servidor que recibe las conexiones la cortara enviando un RST y elimina el intento de conexion.
+
+Si se el atacante envia los SYN con IP falsificadas no responsivas logra un DoS.
+#### Defensa
+Se podría cortar conexiones, pero no sabemos cuales, se podría no guardar nada, pero entonces no se establecen conexiones.
+
+Una opción es reducir la memoria para conexiones no establecidas.
+##### SYN Cookies
+En lugar de asignar recursos al recibir una solicitud SYN se genera un numero de secuencia inicial (ISN) que codifica la informacion sobre la conexion.
+- Primeros 5 bit representan un numero que aumenta lentamente con el tiempo.
+- Siguientes 3 bit contienen el tamaño maximo de segmento anunciado por el cliente.
+- Ultimo 24 bits son un hash secreto basado en la IP, puerto junto los 5 primeros bits.
+Al recibir un ACK sin conexion establecida, se resta 1 y se compara su hash con los ultimos 24 bits.
+###### Inconvenientes
+Las Syn cookies tienene limitaciones de espacio para opciones de negociacion
+- MSS solo 3 bits, para aproximadamente 65000 valores
+- SACK, no tiene espacio
+- Ventanas grandes, no tiene espacio
+##### Soluciones
+- Aumentar la cantidad de bits para la codificacion
+- Usar SYN cookies solo en caso de ataque
+- Usar la marca temporal que se devuelve en el ACK para codifica informacion adicional (9 bits)
+### Anexo SlowLoris
+Ataque de agotamiento que se basa en hacer muchas peticiones http incompletas, manda cabeceras periodicamente para manterner las conexiones activas y nunca cerrarlas.
+#### Defensa
+Aumentar el numero de hilos o crear limites (ineficiente), proxy inverso en la nube.
+## Autenticación
+Como se ha mencionado anteriormente, la IP y puerto destino se conocen, el puerto origen se puede adivinar y la IP se puede falsificar. 
+
+Ante falta de autenticación se pueden realizar ataques DoS (RST y SYN) e inyección de datos.
+
+### Autenticacion Basada en Posicion
+- Control de conexiones entre host o enrutadores adyacentes.
+- Cuando ambas partes residen en la misma LAN.
+- Cuando se conocen la distancia de saltos.
+#### GTSM (Generalized TTL Security Mechanism)
+Tecnica de seguridad para proteger las sesiones de comunicacion mediante el usdo del "Time To Live" de los paquetes IP, se establece el TTL en 255 para saber que los paquetes solo atravesaron n saltos.
+##### Clasificacion de los paquetes recibidos:
+- Desconocido, Cualquier datagrama que no este relacionado con una sesion GTSM.
+- Confiable, Datagrama relacionado con la sesion GTSM cuyo valor TTL es valido (normalmente 254)
+- Peligroso, Datagramas de una sesion GTSM con valor TTL incorrecto.
+### TCP-AO (TCP Authentication Option)
+Usado para proteger la capa de transporte, sobretodo en conexiones que se mantienen activas por mucho tiempo como BGP, LDP.
+
+Permite el uso de algoritmos de seguridad más fuertes que MD5, como HMAC-SHA.
+
+Se complementa con IKE, permitiendo el intercambio seguro de las claves, y  se complementa con TLS porque TLS protege los datos y TCP-AO la información del protocolo.
+#### TCP-AO Vs TCP-MD5
+
+TCP-MD5, opción de seguridad que añade una firma MD5 a los paquetes TCP, la autenticación se logra mediante una clave compartida entre los dispositivos que establecen la conexión.
+
+TCP-AO, tiene algoritmos más fuertes, seguridad doble al generar las claves de tráfico a partir de la clave configurada por el usuario, mejor gestión de claves y agilidad con cambios sobre la marcha sincronizando el cambio y más adecuado para conexiones de larga duración.
+#### TCP-AO: Claves y Propiedades
+Master Key Tuples (MKT): Define los atributos de autenticación de la conexión.
+- ID 
+- Identificador de conexión TCP: IPs y puertos.
+- TCP Option Flag: Las opciones TCP a autenticar.
+- Clave maestra: Secuencia aleatoria para generar las claves de tráfico.
+- Función de derivación de claves (KDF).
+- Algoritmo MAC: Método de autenticación.
+
+Traffic Keys: Se generan a partir del MKT, direcciones IP, puertos e ISN (para asegurar la integridad), cuatro claves:
+- Send_SYN_traffic_key: No usa ISN.
+- Receive_SYN_traffic_key: Raro uso, excepto conexiones con apertura simultánea.
+- Send_other_traffic_key.
+- Receive_other_traffic_key.
+
+***Hay dos pares de llaves, una por cada direccion del trafico****
+# Proteccion del DNS
+# Proteccion de Enrutamiento
+
