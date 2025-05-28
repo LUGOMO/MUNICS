@@ -363,4 +363,89 @@ Se necesitan de 3 partes involucradas, el suplicante (dispositivo del cliente), 
 Es un framework de autenticacion L2 (Capa 2 OSI Enlace de Datos), por lo que no es un un mecanismo de autenticacion especifico, este propociona funciones comunes de metodos negociacion de autenticacion llamado EAP Methods.
 
 La autenticacion es realizada por el protocolo interno a EAP, no es realizada por EAP.
+### EAPOL y RADIUS
+### EAPOL
+- EAP define formatos de mensajes genericos para la autenticacion, request, response, success y failure. El campo "EAP Authentication Type" especifica el mecanismo de autenticacion en particular, el tipo de credenciales y como utilizarlas para el proceso de autenticacion segura.
+- EAP suele utilizarse directamente sobre las conexiones de enlace de datos como el protocolo Punto-a-Punto o IEEE 802.1X sin necesidad de IP
+- 802.1X define la encapsulación de EAP sobre cable, conocido como EAPOL (EAP over LAN)
+- Si el autenticador, y el servidor autenticador no estan ubicados de manera conjunta, los mensajes EAP deben ser encapsulados en otro protocolo para que se realice la entrega segura.
+### RADIUS (Remote Access Dial-in User Service)
+Define su propio protocolo de transporte para las comunicaciones entre autenticador y el servidor RADIUS AAA.
 
+RADIUS, define menajes entre el NAS y el Servidor de Autenticación, donde:
+- NAS envía el "Access-request"
+- AS, responde con el "Access-challenge, Access-accept o Access-reject"
+- Adicionalmente se envían otros paquetes referentes a accounting.
+
+EAP es encapsulado en RADIUS en los AR y AC tantas rondas sean necesarias, contiene el EAP-message attribute y el Message-authenticator attribute que es obligatorio en RADIUS para transportar atributos EAP (ICV y MAC).
+
+RADIUS tiene su propio protocolo basado en un secreto compartió entre los terminales (NAS y RADIUS server).
+#### Seguridad en RADIUS
+- NAS y RADIUS Server comparten un secreto.
+- Las respuestas del AS contienen un **campo authenticator** MD5 (Code | ID | Length | RequestAuth | Attributes | Shared Secret ), donde RequestAuth es un nonce del NAS generado en el Access.request Auth.
+- Cualquier paquete que transporte mensajes EAP, debe emplear el atributo "Message-Authenticator" que es un HMAC-MD5 (Shared Secret| Code | ID | Length | RequestAuth | Attributes) (igual que Authenticator del AS pero con el Shared Secret al inicio).
+- Radius tiene su propia funcion para ocultar los atributos usando el Shared Secret.
+
+***Si un método EAP genera claves MSK (Master Session Key), el PMK (Pairwise Master Key) derivado del MSK se envía en el Access-Accept desde el servidor al NAS, cifrado con el shared secret***
+#### Vulnerabilidades en RADIUS
+- Ataques de diccionario, debido a que no se actualiza la clave perecompartida, los mensajes se envian en claro e incluyen el campo respectivo de autenticacion y ademas se usa MD5.
+- Problemas de privacidad, spoofin y hijacking, ataques de repeticion, negociacion e suplantacion, MITM etc...
+
+***Radius recomienda el uso de mecanismos bidireccionales de autenticacion e IPSEC para proteger la comunicacion entre el NAS y el autenticador.***
+
+### Métodos de autenticacion EAP basados en TLS
+#### EAP-TLS (EAP Transport Layer Security)
+Autenticacion mutua en el handshake inicial que establece el tunel TLS, necesita certificados x509 en ambos terminales.
+#### EAP-TTLS (EAP Tunneled Transport Layer Security)
+Solo el servidor lleva el certificado, el cliente se autentica dentro del tunel TLS usualmente utilizando contraseñas compartidas (como se transporta dentro del tunel seguro no hay preocupacion, pudieran ir en claro)
+#### PEAP (Protected EAP)
+Similar a EAP-TTLS. el suplicante se autentica usando EAP dentro del tunel TLS
+#### EAP-FAST (EAP Flexible Authentication via Secure Tunneling)
+No necesita certificados, utiliza Protected Access Credentials (PAC) para establecer el tunel 
+- PAC Key, valor secreto aleatorio utilizado para derivar la master y session key de TLS.
+- PAC Opaque, es la PAC key + la identidad del usuario encriptado por la master key de EAP-FAST.
+- PAC info, identidad del servidor y timers TTL.
+
+Se compone de 3 fases
+- PAC provisioning
+- Establecimiento del TLS Tunnel 
+- Autenticación
+## Secure Association Protocol
+El protocolo de asociacion segura se encarga una vez el cliente es autenticado con exito, establecer una relacion de confianza adicional, esto para asegurar que los datos transmitidos esten cifrados y protegidos.
+
+Algunos metodos EAP, como resultado de la autenticacion, generan "raw keying material" tanto en el suplicante como el autenticador, que les permite autenticar el uno al otro debido a que ambos conocen una clave que deriva de la Master Key y tambien acuerdan el uso de seguridad simetrica basada en asociacion de claves para encriptar transmisiones unicast y multicast.
+## MACsec
+Protocolo de seguridad en redes Ethernet cableads en L2 que cifra y autentica las tramas Ethernet, intereseante para proveedores de internet, comunmente utilizado para despliegue local y para aplicar en enlaces punto-a-punto.
+
+Garantiza integridad, autenticidad del origen de la infromacion, confidencialidad, protege contra ataques de repeticion, controles de retardo de recepcion y contribuye contra ataques DOS.
+
+MACsec no cifra las direcciones MAC ni el tipo de Protocolo para permitir el enrutamiento conmutado, pero si cifra los datos de capa superiror.
+
+MACsec no incluye autenticacion ni gestion de claves, para eso se usa MKA (MACsec Key Agreement), que se basa en EAP, establece calves de sesion.
+
+### Definiciones MACsec
+- Secure Connectivity Association (CA): Relación de seguridad entre dos o más dispositivos (puntos de acceso) conectados a la misma LAN, mantenida por protocolos de acuerdo de claves.
+	- Secure Connectivity Association Key (CAK): Secreto poseido por miembros de la CA.
+	- Secure Connectivity Association Key Name (CKN): Texto que identifica al CAK. Ambos se derivan del material de claves del método EAP.
+	- Las CA tienen 2 miembros iniciales (suplicante y autenticador) y eligen dinámicamente un servidor de claves (mínimo ID).
+	- Un servidor que pertenece a varias CA puede crear un grupo CA y unirlas.
+- Secure Associantion (SA): Una relación de seguridad que garantiza las tramas transmitidas entre miembros. Es unidireccional y soportada por una clave o conjunto de 1 uso.
+- Secure Association Key (SAK): El secreto usado, se deriva en el servidor y se distribuye usando MKA
+- Secure Channel (SC): Un SC está respaldado por una secuencia de SA, lo que permite usar periódicamente nuevas claves.
+## MKA (MACsec Key Agreement)
+Es el protocolo que negocia y distribuye las claves de cifrado usadas por MACsec pra proteger el trafico en capa 2.
+
+- MKA se encarga de:
+	- Identifica dispositivos ya autenticados a una CA o una potencial CA en la misma LAN.
+	- Confirma la mutua posesión de una CAK y a su vez que ya se ha pasado la autenticación.
+	- Acuerda y distribuye las claves SAK que se usarán para cifrar tráfico MACsec.
+	- Se asegura de que el tráfico cifrado no se haya retrasado ni manipulado.
+- Emplea tramas EAPOL-MKA para el intercambio de información
+- Permite el transporte seguro y distribuido multipunto-a-multipunto
+- Se elige una clave se servidor dinámica por cada CA
+- Si no esta implementado MKA, MACsec aun puede encriptar la información si las partes involucradas están configuradas estáticamente.
+### Jerarquia de Claves MKA
+- CMAC (AES Cipher-based Message Authentication Code),es un algoritmo de autenticación que genera un código de integridad (tag) para verificar que un mensaje no ha sido modificado y que proviene de un emisor legítimo.
+- CAK es la clave PML que AS le entrega al autenticador en el RADIUS "Access-Accept"
+- Durante el dialogo EAP entre AS y el suplicante, el suplicante obtiene la MSK con lo que deriva la PMK (CAK)
+- El estandar tambien considera la posiilidad de configurar manualmente  CAK y CKN en ambos extremos del enlace (Clave Precompartida)
