@@ -1,8 +1,6 @@
 # TLS (Transpor Layer Security Protocol)
 Es una evolución de SSL (Secure Socket Layer) para proporcionar comunicaciones seguras sobre infraestructura insegura.
 Proporciona un canal seguro a un servicio de Internet arbitrario, garantiza autenticacion, confidencialidad e integridad.
-
-
 ## TLS dentro de la arquitectura de Internet.
 ### TLS Record Protocol
 Es la capa mas baja del protocolo TLS, se encarga de fragmentar los datos de aplicación, cifrarlos y autenticarlos, encapsularlos en una estructura fija, y transmitirlos de forma segura sobre TCP.
@@ -152,5 +150,217 @@ Existe una alternativa, "tickets de sesion" que almacena toda la informacion del
 
 Los servicios simetricos son mas pesados que los asimetricos.
 ### Intercambio de Claves
-- RSA (No presente en TLS v1.3), es el mas simple usa un premaster secret aleatorio, encripta con la llave publica del servidor y la envia en el ClientKeyExchange. (No proporciona forward secrecy)
-- DHECDE, Puede derivar una llave secreta sobre un canal inseguro, ambos lados deben estar autenticados para evitar ataques MITM    
+- RSA (No presente en TLS v1.3), es el mas simple usa un premaster secret aleatorio, encripta con la llave publica del servidor y la envia en el ClientKeyExchange. **(No proporciona forward secrecy)**
+- DHECDE, Puede derivar una llave secreta sobre un canal inseguro, ambos lados deben estar autenticados para evitar ataques MITM   
+	- Hay dos variaciones:
+		- Statich (DH) (No se usa en v1.3), rara vez utilizado, el servidor reusa paramteros. por lo que la llave siempre es la misma, **(No proporciona Forward Secrecy)**
+		- (EC) Ephemeral (DHE), los parametros cambian en cada conexion diferente, **(Proporciona Forward Secrecy)**
+***Forward Secrecy o secreto a futuro establece que si se filtra o roba la clave privada de un servidor, los mensajes que tú y ese servidor intercambiaron en el pasado seguiran protegidos.***
+### Autenticación
+Usualmente se utiliza algun tipo de criptografia de llave publica, comunmente RSA aunque tambien se usa ECDSA (Eliptic Curve Digital Signature Algorithm).
+- El cliente obtiene y valida el certificado del servidor
+	 Dependiendo de que algoritmo se utilice
+	- RSA, el cliente encripta la premaster secret con la llave publica del servidor. El servidor se autentica solo si el mensaje "**Finished**" que recibe del cliente es correcto
+	- ECDSA, El servidor comunica los parametros firmados con su propia clave privada. Dichos parametros son concatenados con valores aleatorios para evitar ataques de repeticion.
+### Encriptado
+Pueden usarse varios cifrados, 3DES, AES. ARIA. CAMELIA, RC4 y SEED
+
+#### Tipos de encriptado
+###### Stream Encryption
+Se genera un flujo de claves operadas con los datos usando XOR
+
+La estructura consiste en:
+
+Header | Ciphertext 
+- Donde Ciphertext esta compuesto por Plaintext | MAC (Aqui ocurre el encriptado)
+- Que a su vez MAC esta compuesto por Sequence Number | Header | Plaintext (Aqui ocurre la autenticacion)
+
+**El Header esta incluido en la MAC para proteger la integridad del mensaje completo, el MAC (Message Authentication Code) detecta si alguien modifico el contenido o el contexto del mensaje, por lo que incluir el Header en el MAC garantiza que nadie pueda cambiar el tipo de mensaje, que la version TLS usada no se altera, y el receptor puede saber si el mensaje fue recortado o alargado*
+
+**El Sequence Number, se usa como entrada para calcular el MAC, sin embargo este no se envia en el paquete, sirve para evitar ataques de reordenamiento o duplicacion de mensajes**
+##### Block Encryption
+Divide los datos en bloques de tamaño fijo y se realizan las operaciones de cifrado usando los bloques de entrada como entrada de los siguientes. Se utiliza CBC o EMAC.
+
+La estructura consiste en:
+
+Header | IV | Ciphertext
+- Ciphertext: Plaintext | MAC | Padding (Aqui ocurre el encriptado)
+- MAC: Sequence Number | Header | Plaintext (Aqui ocurre la autenticacion)
+
+Este tipo utiliza CBC Mode (Cypher Block Chaining)
+A partir de TLS 1.1, el IV es unico por cada registro, evitando ataques de prediccion del IV (TLS 1.0)
+###### Authenticated Encryption With Associated Data (AEAD)
+Realiza cifrado y autenticacion en una sola operacion criptografica.
+
+La estructura consiste en:
+
+Header | Nonce | Ciphertext
+
+Utiliza los modos CBC-MAC (CCM) y Galois Counter Mode (GCM)
+Es el preferido en la actualidad
+Solo disponible en v1.3
+
+### Cierre de conexión
+TLS, utiliza el subprotocolo de alertas para cerrar la conexión de forma segura
+
+Niveles:
+- Fatal, la conexión se cierra de inmediato
+- Warning, transporta una descripción, donde el receptor puede emitir una alerta "fatal" como respuesta. El mensaje "Close Notify" sirve para cerrar de manera correcta la conexión TLS, si este no se recibe puede haber un ataque de truncado.
+### Operaciones Criptograficas
+#### PRF (Pseudo Random Function)
+Una funcion pseudoaleatoria genera cantidades arbitrarias de datos pseudoaleatorios. En TLS v1.2 se utiliza Hash-based MAC (HMAC) y en TLS v1.3 se utiliza HKDF
+#### Master Secret
+Se deriva del **premaster secret** mediante una PRF, se utilizan campos aleatorios para garantizar la aleatoriedad, tiene 48 bytes (384 bits) de longitud.
+
+### Generacion de Claves
+
+Para la generacion de claves se utiliza como parametros:
+- Premaster Key
+- Master Secret
+- Client Random
+- Server Random
+
+Estos son los parametros de la PRF que produce la **Master Key**.
+
+Luego la Master key se concatenacon:
+- "key expansion"
+- Client random
+- Server Random
+
+Cuya salida se vuelve a usar como parametros de otra PRF que produce el **Key Block** que esta conformado por:
+- Encrypt Key 1
+- Encrypt Key 2
+- Mac Key 1
+- Mac Key 2
+- IV 1
+- IV 2
+
+En resumen
+**Generación del Master Secret:**
+Master Secret = PRF(Premaster Secret, "master secret", ClientRandom || ServerRandom)
+**Generacion del Key Block:**
+Key Block = PRF(Master Secret, "key expansion", ServerRandom || ClientRandom)
+### Cipher Suites
+Es una seleccion de primitivas criptograficas y parametros, en otras palabras es un conjunto de algoritmos que define como se protegera la conexion segura entre Cliente y Servidor.
+# PKI (Public Key Infraestructure)
+Su meta es permitir que personas que nunca se han conocido se comuniquen de manera segura.
+
+Su objetivo es acceder a las claves publicas, obtener informacion acerca de la validez de esas claves (concepto de revocacion) y que sea escalable.
+
+Internet PKI, se basa en el uso de entidades de terceros confiables o tambien conocidas como CA (Certification Authorities), estas generan certificados mediante el almacenamiento de claves publicas.
+## X.509
+Es un estandar internacional de llaves publicas (PKI) adaptado para el uso en Internet.
+### Timeline
+- PKIX (Public Key Infraestructure for X.509) se conformo para adaptar las ITU-T a X.509
+- CA/Browser Forum (CAB Forum), coordina y estandariza la relacion entre navegadores CA y OS
+- IETF Web PKI, describe el comportamiento de PKI en la web
+
+## Campos del Certificado
+- Version: 1.2 o 3 (Actualmente casi todos usan v3)
+- Numero de serie: numero unico, no secuencial con al menos 20 bit aleatoriedad.
+- Algoritmo de firma, el que se implento para firmar el certificado
+- Emisor: DN del emisor del certificado
+- Validez: fecha de inicio y final de la validez del certificado
+- Subject: DN de la entidad propietaria de la llave publica certificada.
+- Clave Publica: ID del algoritmo, parametros opcionales y la clave en si.
+### Extensiones del certificado
+- Nombre alternativo del Subject: Permite multiples identidades, especificadas por el nombre de DNS, direcciones IP o URL, reemplaza el campo "Subject".
+- Limitaciones de nombre: Limita las identidades a las que la CA puede certificar.
+- Limites Básicos: Limita la profundidad maxima en la cadena de confianza, indica cuantos niveles de CAs subordinadas se pueden emitir debajo.
+- Uso de claves: define para que puede usarse la clave publica del certificado (lista de permisos).
+- Uso de claves extendido:  refina aun mas los usos de manera mas especifica de la clave publica.
+- Políticas de certificado: son enlaces que remiten a documentos o lineamientos que indican como se valido la identitada, garantias del certificado, para que se puede usar legal o contractualmente el certificado.
+- Puntos de distribución CRL: Ubicación de la lista de revocación.
+- Información de acceso de autoridad: Varias URIs, entre ellas la ubicación del OSCP responder.
+- Clave de identificación del Subject: Usualmente es un hash, utilizado para identificar de manera única la llave publica.
+- Clave de identificación de la autoridad: Hash de la clave que firmo el certificado.
+### Ciclo de Vida de los Certificados
+
+#### Solicitud de emisión del Certificado
+- Subscriber: Genera una solicitud de firma de certificado que contiene su información y clave publica.
+- Registration Authority: Recibe el CSR (Request Certificate Issuance) y realiza la validación de la entidad del solicitante.
+- Certification Authority: Es la autoridad que emite el certificado
+#### Validacion
+- Validate Subscriber Identity: La RA o CA, verifican la identidad del solicitante según sus políticas
+#### Emision
+- Issue Certificate: Una vez se valido, la CA firma digitalmente el certificado con su clave privada.
+#### Publicación del Certificado
+Se publica en varios lugares:
+- Web Server: Para autenticacion SSL o TLS
+- CRL Server: Para la listas de revocación.
+- OCSP Responder: Servicio de verificación de estado online.
+#### Proceso de Verificación
+- 1 Request Certificate: Solicita al servidor web el certificado
+- 2 Verificación de firma: Valida que la firma de la CA es valida o no.
+- 3 Verificación de revocación: Consulta CRL u OCSP para verificar si ha sido revocado o no.
+- Relying Party: Confía si pasa todas las verificaciones.
+## Internet PKI Infraestructure
+### Solicitud de Firma del Certificado
+Lleva la clave publica del solicitante, con la finalidad de demostrar la veracidad de la clave privada correspondiente
+### Validación de la identidad del suscriptor
+#### Estrategias de Validación
+- Dominio, Prueba de control de un dominio determinado, envía un correo a una dirección desconocida o un registro de la zona de dominio.
+- Organización, Requiere de validación de identidad y autenticidad, verifica inconsistencias en procedimientos o en codificación de la información.
+- Ampliada, Requiere validación de identidad y autenticidad con requisitos muy estrictos.
+### Revocación
+Se realiza cuando hay sospecha que la clave privada ha sido comprometida, o el certificado ya no se necesita.
+
+Se puede comprobar con las CRL o de manera online con OCSP, ambas permiten a las partes involucradas verificar el estado.
+### Cadenas de certificados
+Es el camino de confianza entre el certificado con una autoridad certificadora en la que confía el OS.
+
+El Root CA va embebido en el SO o navegador, los certificados intermedios y finales son proporcionados por el servidor.
+#### Justificación de las cadenas de certificados
+- Seguridad de la clave raíz de la CA: Es critico, si se revoca todos los certificados deben ser emitidos nuevamente, esta clave debe mantenerse siempre offline.
+- Certificación Cruzada: una nueva clave raíz es firmada por la antigua mientras se despliega en OS y navegadores.
+- Compartimentar: Dividir una raíz entre múltiples CA subordinadas para reducir riesgos.
+- Delegación: Una gran empresa puede querer emitir sus propios certificados, una CA puede emitir un certificado subordinado, pudiendo este certificado estar restringido.
+### Partes de Confianza
+Debe de confiarse en una colección de certificados CA raíces, OS, o navegadores.
+- Apple y Microsoft, La CA debe pasar una auditoria anual.
+- Mozilla, Usa un programa transparente de certificados raíz.
+- Chrome, Usa el almacenamiento de certificados del OS, aplica listas blancas y negras.
+## Problemas con la PKI actual infraestructura
+### Control de la emisión de certificados por los propietarios de dominios
+Cualquier CA puede emitir un certificado para un dominio sin permiso o notificación del propietario, esto puede ser negligencia o malicia.
+
+Existen cientos de CA, por lo que una sola comprometida podría vulnerar la seguridad.
+
+### Dificultad actualizando los almacenes de confianza
+Se dice que la mayoría de CAs son muy "grandes" para fallar, eliminar una CA tiene consecuencias a gran escala por lo que usualmente no ocurre.
+
+Las CAs raíz se confía o no, se puede prohibir certificados CA desde una fecha especifica, o remover privilegios EV.
+### Revocación fallida
+#### Razones
+- Retardo en la propagación de información, la información en CRL y OSCP pueden mantenerse valido hasta 10 días.
+- Los navegadores ignoran fallos en la comunicacion de CRL y OSCP.
+- Los navegadores por defecto no verifican chequeos de revocación debido a muchos errores y alta latencia.
+
+Como medida provisional la mayoría de navegadores utilizan mecanismos de listas negras de certificados e intermediarios revocados.
+#### Otras debilidades
+- Validación de dominio débil, implementado por emails inseguros o utilizando datos "whois" inseguros.
+- Advertencias de certificado, Muchas aplicaciones se saltan la validación de certificados, y navegadores permiten el uso de certificados no verificados.
+## Mejoras de la Infraestructura
+### Notaries
+Repositorios públicos de certificados conocidos, esto puede impedir ataques basados en intermediarios maliciosos.
+### Fijación de claves publicas HPKP
+Permite a los dueños restringir que CAs pueden emitir certificados para sus dominios.
+
+Actualmente esta obsoleto.
+### Transparencia de Certificados
+Busca identificar rápidamente certificados fraudulentos, es un framework que permite verificar la emisión de certificados, bajo CT todas las CA participantes deben aplicar todos los certificados emitidos a un log publico.
+
+Cualquiera puede monitorizar la emisión de certificados, las CA obtienen una prueba digital firmada como prueba de entrega.
+
+# PBNAC (Port-Based Network Access Control)
+## IEEE 802.1X
+Es un estandar IEEE para el control de puertos basado en control de acceso, proporciona un mecanismo de autenticacion a dispositivos que quieren conectarse por LAN o WLAN.
+
+Los puertos del SW por defecto estan bloqueados hasta que el dispositivo conectado se autentique, mientras tanto solo paquetes especificos son transmitidos para poder implementar la autenticacion, en WiFi su equivalente sera la asociacion inicial con el AP.
+
+Se necesitan de 3 partes involucradas, el suplicante (dispositivo del cliente), un autenticador (SW o AP) y un servidor de autenticacion.
+## EAP (Extensible Authentication Protocol)
+Es un framework de autenticacion L2 (Capa 2 OSI Enlace de Datos), por lo que no es un un mecanismo de autenticacion especifico, este propociona funciones comunes de metodos negociacion de autenticacion llamado EAP Methods.
+
+La autenticacion es realizada por el protocolo interno a EAP, no es realizada por EAP.
+
