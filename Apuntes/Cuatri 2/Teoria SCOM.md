@@ -13,9 +13,10 @@ En general es un contenedor seguro que divide la información en fragmentos, los
 	  | <---- ServerHello (DH, suite) -----------|
 	  | <---- EncryptedExtensions, Certificate --|
 	  | <---- CertificateVerify, Finished -------|
-	  | ---- Finished --------------------------> |
+	  | ---- Finished -------------------------->|
+	  | ===== Encrypted Application Data ======> |
 --------A partir de aquí se empieza a usar cifrado de aplicación con las claves derivadas.----
-	   | ===== Encrypted Application Data ======> |
+	   
 
 - **Handshake**
 	- Usa Diffie-Hellman Ephmeral (DHE/ECDHE), para generar una clave compartida con forward secrecy.
@@ -72,8 +73,8 @@ Todo esto conforma el Record TLS, adicionalmente hay un contador de 64 bits que 
 
 El record Protocol se encarga de:
 - Transporte del mensaje, transfiere bloques de datos opacos proporcionados por capas superiores del protocolo (TLS no interpreta ni modifica el contenido, , solo lo protege la información proporcionada por las capas de aplicación y los envia por TCP)
-- Encriptacion y validacion de integridad, los primeros mensajes son transferidos en claro, luego que el handshale termina (v1.2) lo encripta y valida de acuerdo a los parametros negociados.
-- Compresion, esta tarea ya no se realiza debido a los ataques laterales de compresion.
+- Encriptacion y validación de integridad, los primeros mensajes son transferidos en claro, luego que el handshake termina (v1.2) lo encripta y valida de acuerdo a los parámetros negociados.
+- Compresión, esta tarea ya no se realiza debido a los ataques laterales de compresión.
 - Extensibilidad, el protocolo solo se encarga del transporte y el encriptado.
 ### Handshake Protocol
 Es el encargado de negociar los parametros de conexion y realiza el proceso de autenticacion
@@ -460,6 +461,7 @@ Es el protocolo que negocia y distribuye las claves de cifrado usadas por MACsec
 ### Robust Security Network Association
 ### WPA/2-Personal
 ### 4-Way Handshake
+# Evil Twin
 # IPSEC
 
 ## Introducción a IPSec
@@ -649,7 +651,37 @@ Traffic Keys: Se generan a partir del MKT, direcciones IP, puertos e ISN (para a
 - Send_other_traffic_key.
 - Receive_other_traffic_key.
 
-***Hay dos pares de llaves, una por cada direccion del trafico****
-# Proteccion del DNS
-# Proteccion de Enrutamiento
+***Hay dos pares de llaves, una por cada dirección del trafico****
+# Protección del DNS
+Es una base de datos con estructura jerárquica, que contiene la estructura o mapa donde relaciona nombres de dominio con sus correspondientes IPs, cuyos elementos principales son los DNS resolvers (encargados de buscar y obtener la dirección asociada al nombre de dominio), el protocolo y los servidores.
+## Resolución de Nombres
+Cuando un ordenador requiere saber la IP de un nombre de dominio el proceso es el siguiente:
+
+- El ordenador tiene un resolver DNS local, es una rutina integrada en el OS, este se encarga de manejar la consultas de nombres. 
+- Este resolver del OS sabe a que servidor DNS local debe enviar las consultas. (El del ISP o uno publico como 8.8.8.8)
+- Si el DNS local no tiene la respuesta porque no esta en su caché, la busca en la red.
+- Puede:
+	- Consultar a otros servidores DNS (del mismo nivel).
+	- Reenviar la consulta a un nivel superior o al raíz.
+- Una vez que encuentra la dirección IP correspondiente, se le envía la respuesta al ordenador que la pidió.
+
+Los DNS locales deben conocer la dirección de al menos uno de los servidores raíz del sistema DNS.
+Suele haber un servidor primario (master) que contiene la base de datos original y servidores secundarios (slave) que replican la db.
+
+Consulta recursiva significa que el servidor DNS se encargara de todo el trabajo de buscar la IP.
+
+Consulta iterativa significa que el servidor DNS solo te proporciona la dirección de otro DNS que quizá tenga la respuesta.
+## Información almacenada en la DB del DNS
+
+- A, direccion IPv4
+- AAAA, direccion IPv6
+- CNAME, Cannonical Name (alias)
+- NS, Nombre del servidor
+- MX, Nombre y prioridad de servidores SMTP 
+- PTR, Puntero a un nombre, para resolucion inversa.
+- SOA, Indica la autoridad de una zona
+- TXT, Texto arbitrario
+## Flujo de datos
+
+# Protección de Enrutamiento
 
